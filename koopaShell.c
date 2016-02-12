@@ -21,6 +21,9 @@ int main(int argc, char* argv[])
         /* Read a command from the user */
         fgets(command, MAX_SIZE, stdin);
 
+        /* Get rid of the new line character */
+        command[strlen(command) - 1] = '\0';
+
         /* Parse the string into the command portion and
          * an array of pointers to argument strings using the blank
          * character as the separator. Note: the first argument
@@ -38,8 +41,7 @@ int main(int argc, char* argv[])
             i++;
         }
 
-        /* Get rid of the new line character */
-        command[strlen(command) - 1] = '\0';
+
 
         /* If the user entered 'exit' then call the exit() system call
          * to terminate the process
@@ -67,6 +69,9 @@ int main(int argc, char* argv[])
              */
             // Check to see if the command exists as a shell command already
             execvp(commandArgs[0], commandArgs); 
+
+            // Check to see if there is an ampersand appended to the command
+            
         }
         else if (childPid == -1) 
         {
@@ -87,4 +92,4 @@ int main(int argc, char* argv[])
 
     } /* while */
 
-} /* my shell */
+} /* my shell */ 
