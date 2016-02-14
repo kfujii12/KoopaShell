@@ -2,6 +2,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_SIZE 1024
 #define MAX_COMMAND_ARGS 256
@@ -22,6 +24,7 @@ int main(int argc, char* argv[])
 
     // Assume that there is no background command for now
     int backgroundCommand = NO_BACKGROUND_COMMAND;
+    int cdError;
 
     getcwd(previousDirectory, MAX_SIZE);
 
@@ -40,15 +43,15 @@ int main(int argc, char* argv[])
 
         // Check to see if there is a & signifying a command 
         // running in the background
-        // if(!strcmp(&command[strlen(command) - 1], "&"))
-        // {
-        //     backgroundCommand = BACKGROUND_COMMAND;
+        if(!strcmp(&command[strlen(command) - 1], "&"))
+        {
+            backgroundCommand = BACKGROUND_COMMAND;
 
-        //     // We know the command is meant to run in the background
-        //     // Get rid of the & so that we can make a commandArgs 
-        //     // without it 
-        //     command[strlen(command) - 1] = '\0';
-        // }
+            // We know the command is meant to run in the background
+            // Get rid of the & so that we can make a commandArgs 
+            // without it 
+            command[strlen(command) - 1] = '\0';
+        }
 
 
         /* Parse the string into the command portion and
@@ -161,11 +164,14 @@ int main(int argc, char* argv[])
                      * again.
                      */
                     
-                    // if (backgroundCommand)
-                    // {
-                    //     wait(&status);
-                    // }
-                    wait(&status);
+                    if (backgroundCommand)
+                    {
+                        waitpid(childPid, &status, 0);
+                    }
+                    else
+                    {
+                        wait(&status);
+                    }
                 }
             }
 
