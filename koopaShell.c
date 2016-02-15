@@ -32,13 +32,16 @@ int main(int argc, char* argv[])
     // we just started the shell and have no 'previous directory'
     getcwd(previousDirectory, MAX_SIZE);
 
+    // Set the OLDPWD to default to be the home directory 
+    setenv("OLDPWD", getenv("HOME"), OVERWRITE);
+
     while(1) /* Repeat forever */
     {
         // Get the current working directory
         getcwd(currentDirectory, MAX_SIZE);
 
         /* Display a prompt */
-        printf("%s> %% ", currentDirectory);
+        printf("KoopaShell> %% ");
 
         /* Read a command from the user */
         fgets(command, MAX_SIZE, stdin);
@@ -97,22 +100,31 @@ int main(int argc, char* argv[])
             else if (!strcmp(commandArgs[COMMAND], "cd"))
             {
                 // Before we change directories, keep track of the current 
-                // direcotry
+                // directory
                 getcwd(currentDirectory, MAX_SIZE);
 
-                /* If the command was 'cd' with no arguments, then toggle
-                 * the current directory to be the previous directory
+                /* If the command was 'cd' with no arguments or it was 
+                 * 'cd -', then toggle the current directory to be the 
+                 * previous directory
                  */ 
-                if (!commandArgs[FIRST_COMMAND_ARG])
+                if (!commandArgs[FIRST_COMMAND_ARG] || !strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
                 {
                     // Get the previous directory
-                    strcpy(previousDirectory, getenv("OLDPWD"));
+                    strcpy(previousDirectory, getenv("OLDPWD") );
 
                     // Set the new previous directory
                     setenv("OLDPWD", currentDirectory, OVERWRITE);
 
                     // Set the current directory to be the previous directory
                     chdir(previousDirectory);
+
+                    // If there is an argument sent in with 'cd', then it must
+                    // be the -, so we need to print the new directory
+                    if (commandArgs[FIRST_COMMAND_ARG])
+                    {
+                        // print the new directory 
+                        printf("%s\n", previousDirectory);
+                    }
                 }
 
                 // If the folder to change to is a ~, change to the home 
@@ -126,22 +138,6 @@ int main(int argc, char* argv[])
                     chdir(getenv("HOME"));
                 }
 
-                // If the folder to change to is -, then go back to the 
-                // previous directory and print the new current directory
-                else if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
-                {
-                    // Set the previous directory
-                    strcpy(previousDirectory, getenv("OLDPWD"));
-
-                    // Set the new previous directory
-                    setenv("OLDPWD", currentDirectory, OVERWRITE);
-
-                    // Set the current directory to be the previous directory
-                    chdir(previousDirectory);
-
-                    // print the new directory 
-                    printf("%s\n", previousDirectory);
-                }
                 else
                 {
                     // Try to change value of current working directory
@@ -153,11 +149,13 @@ int main(int argc, char* argv[])
                         fprintf(stderr, "No such file or directory\n");
                     }
 
-                    // If it is successful, then update the oldpwd
-                    setenv("OLDPWD", currentDirectory, OVERWRITE);
+                    else
+                    {
+                        // If it is successful, then update the oldpwd
+                        setenv("OLDPWD", currentDirectory, OVERWRITE);
+                    }
 
                 }
-
             
             }
 
