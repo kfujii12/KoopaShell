@@ -4,12 +4,15 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #define MAX_SIZE 1024
 #define MAX_COMMAND_ARGS 256
 #define OVERWRITE 1
 #define BACKGROUND_COMMAND 1
 #define NO_BACKGROUND_COMMAND 0
+#define FIRST_COMMAND_ARG 1
+#define COMMAND 0 
 
 int main(int argc, char* argv[])
 {
@@ -24,7 +27,6 @@ int main(int argc, char* argv[])
 
     // Assume that there is no background command for now
     int backgroundCommand = NO_BACKGROUND_COMMAND;
-    int cdError;
 
     getcwd(previousDirectory, MAX_SIZE);
 
@@ -64,7 +66,7 @@ int main(int argc, char* argv[])
         if (strlen(command))
         {
 
-            commandArgs[0] = strtok(command, " ");
+            commandArgs[COMMAND] = strtok(command, " ");
      
             int i = 0;
 
@@ -81,24 +83,35 @@ int main(int argc, char* argv[])
              */
 
 
-            if(!strcmp(commandArgs[0], "exit"))
+            if(!strcmp(commandArgs[COMMAND], "exit"))
             {
                 exit(EXIT_SUCCESS);
             }
 
             // If the command is a cd, then this is a built-in command
-            else if (!strcmp(commandArgs[0], "cd"))
+            else if (!strcmp(commandArgs[COMMAND], "cd"))
             {
                 // Syntax is:
                 // cd [option] [directory]
                 // Needs to support absolute and relative directory
                 // PWD environement variable is present working directory
 
+
+
                 // Before we change directories, keep track of the current direcotry
                 getcwd(currentDirectory, MAX_SIZE);
 
+                if (!commandArgs[FIRST_COMMAND_ARG])
+                {
+                    strcpy(previousDirectory, getenv("OLDPWD"));
+
+                    setenv("OLDPWD", currentDirectory, OVERWRITE);
+
+                    chdir(previousDirectory);
+                }
+
                 // If the folder to change to is a ~, change to the home directory
-                if (!strcmp(commandArgs[1], "~"))
+                else if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "~"))
                 {
                     setenv("OLDPWD", currentDirectory, OVERWRITE);
                     
@@ -108,7 +121,7 @@ int main(int argc, char* argv[])
 
 
                 // If the folder to change to is -, then go back to the previous directory
-                if (!strcmp(commandArgs[1], "-"))
+                else if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
                 {
 
                     strcpy(previousDirectory, getenv("OLDPWD"));
@@ -116,13 +129,29 @@ int main(int argc, char* argv[])
                     setenv("OLDPWD", currentDirectory, OVERWRITE);
 
                     chdir(previousDirectory);
+
+                    // If the first argument was a -, then print the 
+                    // new directory
+                    if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
+                    {
+                        // print the new directory 
+                        printf("%s\n", previousDirectory);
+                    }
                 }
                 else
                 {
+                    // Try to change value of current working directory
+                    chdir(commandArgs[FIRST_COMMAND_ARG]);
+
+                    // If it wasn't successful, then print an error message
+                    if (errno)
+                    {
+                        fprintf(stderr, "No such file or directory\n");
+                    }
+
+                    // If it is successful, then update the oldpwd
                     setenv("OLDPWD", currentDirectory, OVERWRITE);
 
-                    // Change value of current working directory
-                    chdir(commandArgs[1]);
                 }
 
             
@@ -148,7 +177,7 @@ int main(int argc, char* argv[])
                      * user has asked for.  
                      */
 
-                    execvp(commandArgs[0], commandArgs); 
+                    execvp(commandArgs[COMMAND], commandArgs); 
 
                 }
                 else if (childPid == -1) 
