@@ -85,140 +85,166 @@ int main(int argc, char* argv[])
                 i++;
             }
 
-            /* If the user entered 'exit' then call the exit() system call
-             * to terminate the process
-             */
-            if(!strcmp(commandArgs[COMMAND], "exit"))
+            // Check to see if the command was just a space 
+            if (commandArgs[0])
             {
-                exit(EXIT_SUCCESS);
-            }
-
-            /* If the command is a cd, then this is a built-in command.
-             * The current functionality implements the 'cd', 'cd -', 
-             * 'cd ~', and relative paths
-             */
-            else if (!strcmp(commandArgs[COMMAND], "cd"))
-            {
-                // Before we change directories, keep track of the current 
-                // directory
-                getcwd(currentDirectory, MAX_SIZE);
-
-                /* If the command was 'cd' with no arguments or it was 
-                 * 'cd -', then toggle the current directory to be the 
-                 * previous directory
-                 */ 
-                if (!commandArgs[FIRST_COMMAND_ARG] || !strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
+                /* If the user entered 'exit' then call the exit()
+                 * system call to terminate the process
+                 */
+                if(!strcmp(commandArgs[COMMAND], "exit"))
                 {
-                    // Get the previous directory
-                    strcpy(previousDirectory, getenv("OLDPWD") );
-
-                    // Set the new previous directory
-                    setenv("OLDPWD", currentDirectory, OVERWRITE);
-
-                    // Set the current directory to be the previous directory
-                    chdir(previousDirectory);
-
-                    // If there is an argument sent in with 'cd', then it must
-                    // be the -, so we need to print the new directory
-                    if (commandArgs[FIRST_COMMAND_ARG])
-                    {
-                        // print the new directory 
-                        printf("%s\n", previousDirectory);
-                    }
+                    exit(EXIT_SUCCESS);
                 }
 
-                // If the folder to change to is a ~, change to the home 
-                // directory
-                else if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "~"))
+                /* If the command is a cd, then this is a built-in command.
+                 * The current functionality implements the 'cd', 'cd -', 
+                 * 'cd ~', and relative paths
+                 */
+                else if (!strcmp(commandArgs[COMMAND], "cd"))
                 {
-                    // Set the new previous directory
-                    setenv("OLDPWD", currentDirectory, OVERWRITE);
-                    
-                    // Change value of current working directory to home
-                    chdir(getenv("HOME"));
+                    // Before we change directories, keep track of the current 
+                    // directory
+                    getcwd(currentDirectory, MAX_SIZE);
+
+                    /* If the command was 'cd' with no arguments or it was 
+                     * 'cd -', then toggle the current directory to be the 
+                     * previous directory
+                     */ 
+                    if (!commandArgs[FIRST_COMMAND_ARG] || 
+                        !strcmp(commandArgs[FIRST_COMMAND_ARG], "-"))
+                    {
+                        // Get the previous directory
+                        strcpy(previousDirectory, getenv("OLDPWD") );
+
+                        // Set the new previous directory
+                        setenv("OLDPWD", currentDirectory, OVERWRITE);
+
+                        // Set the current directory to be the previous 
+                        // directory
+                        chdir(previousDirectory);
+
+                        // If there is an argument sent in with 'cd', then 
+                        // it must be the -, so we need to print the new
+                        // directory
+                        if (commandArgs[FIRST_COMMAND_ARG])
+                        {
+                            // print the new directory 
+                            printf("%s\n", previousDirectory);
+                        }
+
+                        // Update the PWD
+                        setenv("PWD", previousDirectory, OVERWRITE);
+                    }
+
+                    // If the folder to change to is a ~, change to the home 
+                    // directory
+                    else if (!strcmp(commandArgs[FIRST_COMMAND_ARG], "~"))
+                    {
+                        // Set the new previous directory
+                        setenv("OLDPWD", currentDirectory, OVERWRITE);
+                        
+                        // Change value of current working directory to home
+                        chdir(getenv("HOME"));
+
+                        // Upate the PWD
+                        setenv("PWD", getenv("HOME"), OVERWRITE);
+                    }
+
+                    else
+                    {
+                        // Clear errno
+                        errno = 0;
+
+                        // Try to change value of current working directory
+                        chdir(commandArgs[FIRST_COMMAND_ARG]);
+
+                        // If it wasn't successful, then print an error 
+                        // message
+                        if (errno)
+                        {
+                            fprintf(stderr, "No such file or directory\n");
+                        }
+
+                        else
+                        {
+                            // If it is successful, then update the oldpwd
+                            setenv("OLDPWD", currentDirectory, OVERWRITE);
+
+                            // Get the new current working directory
+                            getcwd(currentDirectory, MAX_SIZE);
+
+                            // Update the PWD
+                            setenv("PWD", currentDirectory, OVERWRITE);
+                        }
+
+                    }
+                
                 }
 
                 else
                 {
-                    // Try to change value of current working directory
-                    chdir(commandArgs[FIRST_COMMAND_ARG]);
-
-                    // If it wasn't successful, then print an error message
-                    if (errno)
-                    {
-                        fprintf(stderr, "No such file or directory\n");
-                    }
-
-                    else
-                    {
-                        // If it is successful, then update the oldpwd
-                        setenv("OLDPWD", currentDirectory, OVERWRITE);
-                    }
-
-                }
-            
-            }
-
-            else
-            {
-
-                /* Fork a child process to execute the command and return 
-                 * the result of the fork() in the childPid variable so 
-                 * we know whether we're now executing as the parent 
-                 * or child and whether or not the fork() succeeded
-                 */
-                childPid = fork();
-
-                if (!childPid) /* We forked no child, we ARE the child */
-                {
-                    /* We're now executing in the context of the child process.
-                     * Use execvp() or execlp() to replace this program in 
-                     * the process' memory with the executable command the 
-                     * user has asked for.  
+                    /* Fork a child process to execute the command and return 
+                     * the result of the fork() in the childPid variable so 
+                     * we know whether we're now executing as the parent 
+                     * or child and whether or not the fork() succeeded
                      */
+                    childPid = fork();
 
-                    execvp(commandArgs[COMMAND], commandArgs); 
-
-                    // Kill the child if it is unsuccessful in 
-                    // executing its duties.
-                    // Yeah, it's a bit harsh. 
-                    if (errno) 
+                    if (!childPid) /* We forked no child, we ARE the child */
                     {
-                        // Print error message
+                        /* We're now executing in the context of the child 
+                         * process.
+                         * Use execvp() or execlp() to replace this program in 
+                         * the process' memory with the executable command the 
+                         * user has asked for.  
+                         */
+
+                        // Clear errno
+                        errno = 0;
+
+                        // Execute the command
+                        execvp(commandArgs[COMMAND], commandArgs); 
+
+                        // Kill the child if it is unsuccessful in 
+                        // executing its duties.
+                        // Yeah, it's a bit harsh. 
+                        if (errno) 
+                        {
+                            // Print error message
+                            printf("%s\n", strerror(errno));
+
+                            // Kill the child
+                            exit(EXIT_FAILURE);
+                        }
+
+                    }
+                    else if (childPid == -1) 
+                    {
+
+                        /* An error occured during the fork - print it */
                         printf("%s\n", strerror(errno));
 
-                        // Kill the child
-                        exit(EXIT_SUCCESS);
                     }
-
-                }
-                else if (childPid == -1) 
-                {
-
-                    /* An error occured during the fork - print it */
-                    printf("%s\n", strerror(errno));
-
-                }
-                else /* childPid is the PID of the child */
-                {
-                    /* We're still executing in the parent process.
-                     * Wait for the child to finish before we prompt
-                     * again.
-                     */
-                    
-                    if (backgroundCommand)
+                    else /* childPid is the PID of the child */
                     {
-                        printf("Job %d\n", childPid);
-                        waitpid(childPid, &status, 0);
+                        /* We're still executing in the parent process.
+                         * Wait for the child to finish before we prompt
+                         * again.
+                         */
+                        
+                        if (backgroundCommand)
+                        {
+                            printf("Job %d\n", childPid);
 
-                        // After we are done waiting, then 
-                        // reset the background command flag
-                        backgroundCommand = NO_BACKGROUND_COMMAND;
-                    }
-                    else
-                    {
-                        // Wait for the child to finish before we prompt again
-                        wait(&status);
+                            // Reset the background command flag
+                            backgroundCommand = NO_BACKGROUND_COMMAND;
+                        }
+                        else
+                        {
+                            // Wait for the child to finish before we prompt 
+                            // again
+                            waitpid(childPid, &status, 0);
+                        }
                     }
                 }
             }
